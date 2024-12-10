@@ -16,13 +16,39 @@ const ImageSchema = new mongoose.Schema(
       required: [true, "Author is required"],
       trim: true,
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
     likes: {
       type: Number,
       default: 0,
+    },
+    metadata: {
+      iso: {
+        type: Number,
+        require: true,
+      },
+      shutterSpeed: {
+        type: String,
+        require: true,
+      },
+      aperture: {
+        type: String,
+        require: true,
+      },
+      cameraModel: {
+        type: String,
+        default: null,
+      },
+      focalLength: {
+        type: String,
+        default: null,
+      },
+      dimensi: {
+        type: String,
+        require: true,
+      },
+      created: {
+        type: Date,
+        default: null,
+      },
     },
   },
   {

@@ -6,6 +6,7 @@ const {
   updateImage,
   deleteImage,
   getImageById,
+  deleteAllImages,
 } = require("../controllers/imageController");
 const upload = require("../middlewares/multer");
 
@@ -23,5 +24,8 @@ router.put("/:id", upload.single("image"), updateImage);
 
 // DELETE: Menghapus gambar berdasarkan ID
 router.delete("/:id", deleteImage);
+
+// DELETE: Menghapus semua gambar
+router.delete("/", deleteAllImages);
 
 module.exports = router;

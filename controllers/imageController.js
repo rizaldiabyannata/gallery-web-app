@@ -1,4 +1,6 @@
 const Image = require("../models/imageModel");
+const { exiftool } = require("exiftool-vendored");
+const fs = require("fs");
 
 // GET: Mendapatkan semua data gambar
 const getAllImages = async (req, res) => {
@@ -34,36 +36,42 @@ const createImage = async (req, res) => {
 
     // Validasi input
     if (!title || !author) {
-      // Hapus file jika sudah diunggah
-      if (req.file) {
-        const fs = require("fs");
-        if (fs.existsSync(image)) {
-          fs.unlinkSync(image);
-        }
+      if (req.file && fs.existsSync(image)) {
+        fs.unlinkSync(image);
       }
-
       return res.status(400).json({
         message: "Title and Author are required",
       });
     }
 
-    // Validasi berhasil, simpan data
+    // Baca metadata menggunakan exiftool
+    let metadata = {};
+    if (image) {
+      const exifData = await exiftool.read(image);
+      metadata = {
+        iso: exifData.ISO || null,
+        shutterSpeed: exifData.ShutterSpeed || null,
+        aperture: exifData.FNumber || null,
+        cameraModel: exifData.Model || null,
+        focalLength: exifData.FocalLength || null,
+        dimensi: exifData.ImageWidth + "x" + exifData.ImageHeight || null,
+        created: exifData.CreateDate || null,
+      };
+    }
+
+    // Simpan data ke database
     const newImage = await Image.create({
       title,
       image,
       author,
+      metadata,
     });
 
     res.status(201).json(newImage);
   } catch (error) {
-    // Hapus file jika error saat menyimpan ke database
-    if (req.file) {
-      const fs = require("fs");
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
     }
-
     res.status(500).json({ message: error.message });
   }
 };
@@ -74,45 +82,43 @@ const updateImage = async (req, res) => {
     const { id } = req.params;
     const { title, author } = req.body;
 
-    // Validasi input
     if (!title || !author) {
-      // Hapus file jika sudah diunggah
-      if (req.file) {
-        const fs = require("fs");
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
       }
-
       return res.status(400).json({
         message: "Title and Author are required for updating",
       });
     }
 
-    // Temukan data berdasarkan ID
     const imageToUpdate = await Image.findById(id);
     if (!imageToUpdate) {
-      // Hapus file jika ID tidak ditemukan
-      if (req.file) {
-        const fs = require("fs");
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
       }
-
       return res.status(404).json({ message: "Image not found" });
     }
 
-    // Update data
     const updatedFields = { title, author };
+
     if (req.file) {
-      // Hapus file lama jika ada file baru
-      const fs = require("fs");
       if (fs.existsSync(imageToUpdate.image)) {
         fs.unlinkSync(imageToUpdate.image);
       }
 
       updatedFields.image = req.file.path;
+
+      // Baca metadata baru
+      const exifData = await exiftool.read(req.file.path);
+      updatedFields.metadata = {
+        iso: exifData.ISO || null,
+        shutterSpeed: exifData.ShutterSpeed || null,
+        aperture: exifData.FNumber || null,
+        cameraModel: exifData.Model || null,
+        focalLength: exifData.FocalLength || null,
+        dimensi: exifData.ImageWidth + "x" + exifData.ImageHeight || null,
+        created: exifData.CreateDate || null,
+      };
     }
 
     const updatedImage = await Image.findByIdAndUpdate(id, updatedFields, {
@@ -121,14 +127,9 @@ const updateImage = async (req, res) => {
 
     res.status(200).json(updatedImage);
   } catch (error) {
-    // Hapus file jika terjadi error
-    if (req.file) {
-      const fs = require("fs");
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
     }
-
     res.status(500).json({ message: error.message });
   }
 };
@@ -158,10 +159,35 @@ const deleteImage = async (req, res) => {
   }
 };
 
+const deleteAllImages = async (req, res) => {
+  try {
+    const images = await Image.find();
+
+    if (images.length === 0) {
+      return res.status(404).json({ message: "No images found to delete" });
+    }
+
+    // Hapus semua file gambar dari server
+    images.forEach((image) => {
+      if (image.image && fs.existsSync(image.image)) {
+        fs.unlinkSync(image.image);
+      }
+    });
+
+    // Hapus semua data dari database
+    await Image.deleteMany();
+
+    res.status(200).json({ message: "All images deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllImages,
   getImageById,
   createImage,
   updateImage,
   deleteImage,
+  deleteAllImages,
 };
