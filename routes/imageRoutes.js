@@ -17,10 +17,10 @@ router.get("/", getAllImages);
 router.get("/:id", getImageById);
 
 // POST: Menambahkan gambar baru
-router.post("/", upload.single("image"), createImage);
+router.post("/", upload, createImage);
 
 // PUT: Mengupdate gambar berdasarkan ID
-router.put("/:id", upload.single("image"), updateImage);
+router.put("/:id", upload, updateImage);
 
 // DELETE: Menghapus gambar berdasarkan ID
 router.delete("/:id", deleteImage);
